@@ -1,9 +1,4 @@
 
-// REMINDER:
-// std::format blows up exe size by over 150 KB,
-// so keep std::printf for formatting for now,
-// then replace it and std::cout with std::print once it's available
-
 #include <tchar.h>
 #include <iostream>
 #include <format>
@@ -19,7 +14,7 @@ void getExitInput()
 
 	for (; ch != '\n'; ch = std::getchar());
 
-	std::cout << "Press Enter to exit\n";
+	std::printf("Press Enter to exit\n");
 	ch = std::getchar();
 }
 
@@ -33,7 +28,7 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	if (getBinaryTypeResult == 0 || (binaryType != 0 && binaryType != 6))
 	{
-		std::cout << "ERROR: This exe wasn't identified as 32-bit or as 64-bit\n";
+		std::printf("ERROR: This exe wasn't identified as 32-bit or as 64-bit\n");
 		getExitInput();
 		return 0;
 	}
@@ -46,11 +41,11 @@ int _tmain(int argc, _TCHAR* argv[])
 		dllToInject64 = (WCHAR*)L"load_extender_64.dll";
 	}
 
-	std::cout << "Enter the process Id: ";
+	std::printf("Enter the process Id: ");
 	DWORD pid = 0;
 	std::cin >> pid;
 
-	NTSTATUS nt = RhInjectLibrary(
+	NTSTATUS errorCode = RhInjectLibrary(
 		pid,                     // The process to inject into
 		0,                       // ThreadId to wake up upon injection
 		EASYHOOK_INJECT_DEFAULT,
@@ -60,16 +55,16 @@ int _tmain(int argc, _TCHAR* argv[])
 		0                        // size of data to send
 	);
 
-	if (nt != 0)
+	if (errorCode != 0)
 	{
-		std::printf("RhInjectLibrary failed with error code = %d\n", nt);
-		PWCHAR err = RtlGetLastErrorString();
-		std::printf("%ls\n", err);
+		std::printf("RhInjectLibrary failed with error code = %d\n", errorCode);
+		PWCHAR errorMessage = RtlGetLastErrorString();
+		std::printf("%ls\n", errorMessage);
 		getExitInput();
 		return 0;
 	}
 
-	std::cout << "Library injected successfully.\n";
+	std::printf("Library injected successfully.\n");
 	getExitInput();
 	return 0;
 }

@@ -1,11 +1,4 @@
 
-// REMINDER:
-// std::format blows up exe size by over 150 KB,
-// so keep std::printf for formatting for now,
-// then replace it and std::cout with std::print once it's available
-
-#include <iostream>
-#include <filesystem>
 #include <climits>
 #include <mutex>
 #include <vector>
@@ -22,7 +15,6 @@ using strType = std::string;
 using svType = std::string_view;
 #endif
 
-#define stdcout(s) std::cout << s;
 #define DEBUG
 unsigned int fullResetCount = 0;
 
@@ -136,14 +128,14 @@ void printMap(const myMapType& fileMap)
 
         if (it.second.reset)
         {
-            stdcout("RESET");
+            printf("RESET");
         }
         else if (it.second.resetAll)
         {
-            stdcout("RESET ALL");
+            printf("RESET ALL");
         }
 
-        stdcout("\n");
+        printf("\n");
     }
 }
 
@@ -193,7 +185,7 @@ void testInputs(MapAndMutex& mapAndMutexObject)
 
     if (!fhelper.getCharacter(byteOrderMark))
     {
-        stdcout(
+        printf(
             "test_input.txt byte order mark is missing\n\
             save test_input.txt as UTF-16 LE\n\n"
         );
@@ -202,13 +194,13 @@ void testInputs(MapAndMutex& mapAndMutexObject)
     }
     else if (byteOrderMark != 0xFEFF) // not 0xFFFE due to how wchar_t is read
     {
-        stdcout(
+        printf(
             "test_input.txt byte order mark isn't marked as UTF-16 LE\n\
             make sure files_and_delays.txt is saved as UTF-16 LE\n\n"
         );
     }
 #endif
-    stdcout("\ntesting UNIX\n\n - - - - - - - - - -\n\n");
+    printf("\ntesting UNIX\n\n - - - - - - - - - -\n\n");
     printMap(mapAndMutexObject.fileMap);
     testFunctions(mapAndMutexObject, fhelper, true);
     printMap(mapAndMutexObject.fileMap);
@@ -224,7 +216,7 @@ void testInputs(MapAndMutex& mapAndMutexObject)
         it.second.fullResetCheckNumber = 0;
     }
 
-    stdcout("\n\ntesting Windows\n\n - - - - - - - - - -\n\n");
+    printf("\n\ntesting Windows\n\n - - - - - - - - - -\n\n");
     printMap(mapAndMutexObject.fileMap);
     testFunctions(mapAndMutexObject, fhelper, false);
     printMap(mapAndMutexObject.fileMap);
@@ -234,7 +226,7 @@ int main()
 {
     try
     {
-        stdcout("\ntest start\n\n");
+        printf("\ntest start\n\n");
         MapAndMutex mapAndMutexObject;
         testInputs(mapAndMutexObject);
     }
@@ -243,7 +235,7 @@ int main()
         printf("%s", e);
     }
 
-    stdcout("\ntest finished, press Enter to exit\n");
+    printf("\ntest finished, press Enter to exit\n");
     char ch = getchar();
 
     return 0;

@@ -1,11 +1,4 @@
 
-// REMINDER:
-// std::format blows up exe size by over 150 KB,
-// so keep std::printf for formatting for now,
-// then replace it and std::cout with std::print once it's available
-
-#include <iostream>
-#include <filesystem>
 #include <climits>
 #include <mutex>
 #include <thread>

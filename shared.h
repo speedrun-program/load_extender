@@ -1,12 +1,6 @@
 
-// REMINDER:
-// std::format blows up exe size by over 150 KB,
-// so keep std::printf for formatting for now,
-// then replace it and std::cout with std::print once it's available
-
 #ifndef DEBUG
 #define printf(...) (0)
-#define stdcout(x) (0)
 #endif
 
 class FileHelper
@@ -37,6 +31,23 @@ public:
         {
             throw "FileHelper fopen failure in tryToOpenFile";
         }
+    }
+
+    bool checkIfFileExists(std::string&& filename)
+    {
+#ifdef _WIN32
+        bool exists = fopen_s(&_fcheck, filename.c_str(), "rb") == 0;
+#else
+        bool exists = (_fcheck = std::fopen(filename.c_str(), "rb"));
+#endif
+
+        if (_fcheck)
+        {
+            std::fclose(_fcheck);
+            _fcheck = nullptr;
+        }
+
+        return exists;
     }
 
     bool getCharacter(wcharOrChar& ch)
@@ -71,6 +82,7 @@ public:
 
 private:
     FILE* _f = nullptr;
+    FILE* _fcheck = nullptr;
     std::vector<wcharOrChar> _buffer = std::vector<wcharOrChar>(8192 / sizeof(wcharOrChar));
     int _bufferPosition = 0;
     int _charactersRead = 0;
@@ -173,33 +185,34 @@ public:
             std::wstring keyStr;
             std::vector<int> delaysVector;
             FileHelper fhelper;
-            std::string name("files_and_delays.txt");
+            std::string filename("files_and_delays.txt");
             size_t fileNumber = 0;
 
+            // std::filesystem::exists caused 8 KB exe size increase
             for (
                 ;
-                std::filesystem::exists("files_and_delays" + std::to_string(fileNumber) + ".txt");
+                fhelper.checkIfFileExists("files_and_delays" + std::to_string(fileNumber) + ".txt");
                 fileNumber++);
 
             if (fileNumber > 0)
             {
-                name = "files_and_delays" + std::to_string(fileNumber - 1) + ".txt";
+                filename = "files_and_delays" + std::to_string(fileNumber - 1) + ".txt";
             }
 
-            fhelper.tryToOpenFile(name.c_str());
+            fhelper.tryToOpenFile(filename.c_str());
 #ifdef _WIN32
             wchar_t byteOrderMark = '\0';
 
             if (!fhelper.getCharacter(byteOrderMark))
             {
-                stdcout(
+                printf(
                     "files_and_delays.txt byte order mark is missing\n\
                 make sure files_and_delays.txt is saved as UTF-16 LE\n"
                 );
             }
             else if (byteOrderMark != 0xFEFF) // not 0xFFFE due to how wchar_t is read
             {
-                stdcout(
+                printf(
                     "files_and_delays.txt byte order mark isn't marked as UTF-16 LE\n\
                 make sure files_and_delays.txt is saved as UTF-16 LE\n"
                 );
@@ -281,7 +294,7 @@ public:
             {
                 fileMapValue.position = 0;
                 fileMapValue.fullResetCheckNumber = fullResetCount;
-                stdcout("this delay sequence reset due to prior full reset\n");
+                printf("this delay sequence reset due to prior full reset\n");
             }
 
             if (fileMapValue.resetAll)
@@ -295,7 +308,7 @@ public:
                         it.second.fullResetCheckNumber = 0;
                     }
 
-                    stdcout("fullResetCount reset\n");
+                    printf("fullResetCount reset\n");
                 }
 
                 fullResetCount++;
@@ -306,11 +319,11 @@ public:
                 if (fileMapValue.reset)
                 {
                     fileMapValue.position = 0;
-                    stdcout("this delay sequence reset\n");
+                    printf("this delay sequence reset\n");
                 }
                 else
                 {
-                    stdcout("delay sequence already finished\n");
+                    printf("delay sequence already finished\n");
                 }
             }
 
