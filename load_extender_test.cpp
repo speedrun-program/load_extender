@@ -147,12 +147,12 @@ void printMap(const myMapType& fileMap)
     }
 }
 
-void testFunctions(MapAndMutex& mapAndMutexObject, FileHelper& fh, bool testUnix)
+void testFunctions(MapAndMutex& mapAndMutexObject, FileHelper& fhelper, bool testUnix)
 {
     strType pathStr;
     wcharOrChar ch = '\0';
 
-    while (fh.getCharacter(ch))
+    while (fhelper.getCharacter(ch))
     {
         if (ch == '\n')
         {
@@ -186,12 +186,12 @@ void testFunctions(MapAndMutex& mapAndMutexObject, FileHelper& fh, bool testUnix
 
 void testInputs(MapAndMutex& mapAndMutexObject)
 {
-    FileHelper fh;
-    fh.tryToOpenFile("test_input.txt");
+    FileHelper fhelper;
+    fhelper.tryToOpenFile("test_input.txt");
     wcharOrChar byteOrderMark = '\0';
 #ifdef _WIN32
 
-    if (!fh.getCharacter(byteOrderMark))
+    if (!fhelper.getCharacter(byteOrderMark))
     {
         stdcout(
             "test_input.txt byte order mark is missing\n\
@@ -210,12 +210,12 @@ void testInputs(MapAndMutex& mapAndMutexObject)
 #endif
     stdcout("\ntesting UNIX\n\n - - - - - - - - - -\n\n");
     printMap(mapAndMutexObject.fileMap);
-    testFunctions(mapAndMutexObject, fh, true);
+    testFunctions(mapAndMutexObject, fhelper, true);
     printMap(mapAndMutexObject.fileMap);
     fullResetCount = 0;
-    fh.resetFile();
+    fhelper.resetFile();
 #ifdef _WIN32
-    fh.getCharacter(byteOrderMark);
+    fhelper.getCharacter(byteOrderMark);
 #endif
 
     for (auto& it : mapAndMutexObject.fileMap)
@@ -226,7 +226,7 @@ void testInputs(MapAndMutex& mapAndMutexObject)
 
     stdcout("\n\ntesting Windows\n\n - - - - - - - - - -\n\n");
     printMap(mapAndMutexObject.fileMap);
-    testFunctions(mapAndMutexObject, fh, false);
+    testFunctions(mapAndMutexObject, fhelper, false);
     printMap(mapAndMutexObject.fileMap);
 }
 
