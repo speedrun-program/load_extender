@@ -12,7 +12,7 @@
 class FileHelper
 {
 public:
-    FileHelper(const FileHelper& fh) = delete;
+    FileHelper(const FileHelper& fhelper) = delete;
     FileHelper& operator=(FileHelper other) = delete;
     FileHelper(FileHelper&&) = delete;
     FileHelper& operator=(FileHelper&&) = delete;
@@ -84,15 +84,15 @@ struct MapValue
     bool reset = false;
     bool resetAll = false;
 
-    MapValue(bool& textRemaining, std::vector<int>& delaysVector, FileHelper& fh)
+    MapValue(bool& textRemaining, std::vector<int>& delaysVector, FileHelper& fhelper)
     {
         wcharOrChar ch = '\0';
         long long int delay = 0;
 
         for (
-            textRemaining = fh.getCharacter(ch);
+            textRemaining = fhelper.getCharacter(ch);
             ch != '\n' && textRemaining;
-            textRemaining = fh.getCharacter(ch))
+            textRemaining = fhelper.getCharacter(ch))
         {
             if (ch >= '0' && ch <= '9')
             {
@@ -131,7 +131,7 @@ struct MapValue
         }
 
         // make sure to go to end of line
-        for (; ch != '\n' && textRemaining; textRemaining = fh.getCharacter(ch));
+        for (; ch != '\n' && textRemaining; textRemaining = fhelper.getCharacter(ch));
     }
 };
 
@@ -172,7 +172,7 @@ public:
         {
             std::wstring keyStr;
             std::vector<int> delaysVector;
-            FileHelper fh;
+            FileHelper fhelper;
             std::string name("files_and_delays.txt");
             size_t fileNumber = 0;
 
@@ -186,11 +186,11 @@ public:
                 name = "files_and_delays" + std::to_string(fileNumber - 1) + ".txt";
             }
 
-            fh.tryToOpenFile(name.c_str());
+            fhelper.tryToOpenFile(name.c_str());
 #ifdef _WIN32
             wchar_t byteOrderMark = '\0';
 
-            if (!fh.getCharacter(byteOrderMark))
+            if (!fhelper.getCharacter(byteOrderMark))
             {
                 stdcout(
                     "files_and_delays.txt byte order mark is missing\n\
@@ -206,7 +206,7 @@ public:
             }
 #endif
 
-            while (addMapPair(fileMap, keyStr, delaysVector, fh));
+            while (addMapPair(fileMap, keyStr, delaysVector, fhelper));
         }
         catch (char const* e)
         {
@@ -216,13 +216,13 @@ public:
         }
     }
 
-    bool addMapPair(myMapType& fileMap, strType& keyStr, std::vector<int>& delaysVector, FileHelper& fh)
+    bool addMapPair(myMapType& fileMap, strType& keyStr, std::vector<int>& delaysVector, FileHelper& fhelper)
     {
         keyStr.clear();
         delaysVector.clear();
         wcharOrChar ch = '\0';
         bool keepWhitespace = false;
-        bool textRemaining = fh.getCharacter(ch);
+        bool textRemaining = fhelper.getCharacter(ch);
 
         if (ch == '\n' || !textRemaining)
         {
@@ -238,9 +238,9 @@ public:
         }
 
         for (
-            textRemaining = fh.getCharacter(ch);
+            textRemaining = fhelper.getCharacter(ch);
             ch != '\n' && ch != '/' && textRemaining;
-            textRemaining = fh.getCharacter(ch))
+            textRemaining = fhelper.getCharacter(ch))
         {
             if (keepWhitespace || (ch != ' ' && ch != '\f' && ch != '\r' && ch != '\t' && ch != '\v'))
             {
@@ -250,22 +250,22 @@ public:
 
         if (textRemaining && ch == '/')
         {
-            MapValue mv(textRemaining, delaysVector, fh);
+            MapValue fileMapValue(textRemaining, delaysVector, fhelper);
 
-            if (!keyStr.empty() && (!delaysVector.empty() || mv.resetAll))
+            if (!keyStr.empty() && (!delaysVector.empty() || fileMapValue.resetAll))
             {
-                mv.delays = delaysVector;
+                fileMapValue.delays = delaysVector;
                 strType keyStrCopy(keyStr);
-                mv.delays.shrink_to_fit();
+                fileMapValue.delays.shrink_to_fit();
                 keyStrCopy.shrink_to_fit();
-                fileMap.emplace(std::move(keyStrCopy), std::move(mv));
+                fileMap.emplace(std::move(keyStrCopy), std::move(fileMapValue));
             }
         }
 
         return textRemaining;
     }
 
-    void delayFile(MapValue& mv)
+    void delayFile(MapValue& fileMapValue)
     {
 #ifndef DEBUG // this needs to be reset in the test, so it's a global variable instead
         static unsigned int fullResetCount = 0;
@@ -277,14 +277,14 @@ public:
         {
             std::lock_guard<std::mutex> mutexForMapLock(mutexForMap);
 
-            if (mv.fullResetCheckNumber < fullResetCount)
+            if (fileMapValue.fullResetCheckNumber < fullResetCount)
             {
-                mv.position = 0;
-                mv.fullResetCheckNumber = fullResetCount;
+                fileMapValue.position = 0;
+                fileMapValue.fullResetCheckNumber = fullResetCount;
                 stdcout("this delay sequence reset due to prior full reset\n");
             }
 
-            if (mv.resetAll)
+            if (fileMapValue.resetAll)
             {
                 if (fullResetCount == UINT_MAX) // this probably won't ever happen
                 {
@@ -301,11 +301,11 @@ public:
                 fullResetCount++;
                 printf("fullResetCount set to %zu, all sequences will be reset\n", fullResetCount);
             }
-            else if (mv.position == mv.delays.size())
+            else if (fileMapValue.position == fileMapValue.delays.size())
             {
-                if (mv.reset)
+                if (fileMapValue.reset)
                 {
-                    mv.position = 0;
+                    fileMapValue.position = 0;
                     stdcout("this delay sequence reset\n");
                 }
                 else
@@ -314,10 +314,10 @@ public:
                 }
             }
 
-            if (mv.position < mv.delays.size())
+            if (fileMapValue.position < fileMapValue.delays.size())
             {
-                delay = mv.delays.at(mv.position);
-                mv.position++;
+                delay = fileMapValue.delays.at(fileMapValue.position);
+                fileMapValue.position++;
             }
 
             printf("delay is %d millisecond(s)\n\n", delay);
