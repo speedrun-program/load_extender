@@ -188,7 +188,7 @@ public:
             std::string filename("files_and_delays.txt");
             size_t fileNumber = 0;
 
-            // std::filesystem::exists caused 8 KB exe size increase
+            // std::filesystem::exists caused 10 KB exe size increase
             for (
                 ;
                 fhelper.checkIfFileExists("files_and_delays" + std::to_string(fileNumber) + ".txt");
