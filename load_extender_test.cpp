@@ -1,5 +1,11 @@
 
-#include <cstdio>
+// REMINDER:
+// std::format blows up exe size by over 150 KB,
+// so keep std::printf for formatting for now,
+// then replace it and std::cout with std::print once it's available
+
+#include <iostream>
+#include <filesystem>
 #include <climits>
 #include <mutex>
 #include <vector>
@@ -16,13 +22,14 @@ using strType = std::string;
 using svType = std::string_view;
 #endif
 
+#define stdcout(s) std::cout << s;
 #define DEBUG
 unsigned int fullResetCount = 0;
 
 // using multiple cpp files made exe bigger, so definitions are in this header
-#include "shared_stuff.h"
+#include "shared.h"
 
-void windowsHookFunction(myMapType& m, strType& pathStr, std::mutex& mutexForMap)
+void windowsHookFunction(MapAndMutex& mapAndMutexObject, strType& pathStr)
 {
     if (!pathStr.empty() && pathStr.back() == '\r')
     {
@@ -31,22 +38,26 @@ void windowsHookFunction(myMapType& m, strType& pathStr, std::mutex& mutexForMap
 
     const wcharOrChar* path = pathStr.c_str();
 
-    int pathEndIndex = (int)pathStr.size();
+    // in the actual program, this will always be less than INT_MAX
+    int pathEndIndex = pathStr.size() < INT_MAX ? (int)pathStr.size() : INT_MAX;
     int filenameIndex = pathEndIndex;
 
     for (; filenameIndex >= 0 && path[filenameIndex] != '\\'; filenameIndex--);
 
     filenameIndex++; // moving past '\\' character or to 0 if no '\\' was found
-    auto it = m.find(svType(path + filenameIndex, (size_t)pathEndIndex - filenameIndex));
+    auto it = mapAndMutexObject.fileMap.find(
+        svType(path + filenameIndex,
+        (size_t)pathEndIndex - filenameIndex)
+    );
 
-    if (it != m.end())
+    if (it != mapAndMutexObject.fileMap.end())
     {
 #ifdef _WIN32
         printf("\n%ls found in map\n", pathStr.c_str());
 #else
         printf("\n%s found in map\n", pathStr.c_str());
 #endif
-        delayFile(m, it->second, mutexForMap);
+        mapAndMutexObject.delayFile(it->second);
     }
     else
     {
@@ -58,7 +69,7 @@ void windowsHookFunction(myMapType& m, strType& pathStr, std::mutex& mutexForMap
     }
 }
 
-void unixHookFunction(myMapType& m, strType& pathStr, std::mutex& mutexForMap)
+void unixHookFunction(MapAndMutex& mapAndMutexObject, strType& pathStr)
 {
     if (!pathStr.empty() && pathStr.back() == '\r')
     {
@@ -79,16 +90,19 @@ void unixHookFunction(myMapType& m, strType& pathStr, std::mutex& mutexForMap)
     }
 
     filenameIndex++; // moving past '/' character or to 0 if no '/' was found
-    auto it = m.find(svType(path + filenameIndex, (size_t)pathEndIndex - filenameIndex));
+    auto it = mapAndMutexObject.fileMap.find(
+        svType(path + filenameIndex,
+        (size_t)pathEndIndex - filenameIndex)
+    );
 
-    if (it != m.end())
+    if (it != mapAndMutexObject.fileMap.end())
     {
 #ifdef _WIN32
         printf("\n%ls found in map\n", pathStr.c_str());
 #else
         printf("\n%s found in map\n", pathStr.c_str());
 #endif
-        delayFile(m, it->second, mutexForMap);
+        mapAndMutexObject.delayFile(it->second);
     }
     else
     {
@@ -100,9 +114,9 @@ void unixHookFunction(myMapType& m, strType& pathStr, std::mutex& mutexForMap)
     }
 }
 
-void printMap(const myMapType& m)
+void printMap(const myMapType& fileMap)
 {
-    for (auto& it : m)
+    for (auto& it : fileMap)
     {
         printf(
 #ifdef _WIN32
@@ -122,18 +136,18 @@ void printMap(const myMapType& m)
 
         if (it.second.reset)
         {
-            printf("RESET");
+            stdcout("RESET");
         }
         else if (it.second.resetAll)
         {
-            printf("RESET ALL");
+            stdcout("RESET ALL");
         }
 
-        printf("\n");
+        stdcout("\n");
     }
 }
 
-void testFunctions(myMapType& m, FileHelper& fh, std::mutex& mutexForMap, bool testUnix)
+void testFunctions(MapAndMutex& mapAndMutexObject, FileHelper& fh, bool testUnix)
 {
     strType pathStr;
     wcharOrChar ch = '\0';
@@ -144,14 +158,14 @@ void testFunctions(myMapType& m, FileHelper& fh, std::mutex& mutexForMap, bool t
         {
             if (testUnix)
             {
-                unixHookFunction(m, pathStr, mutexForMap);
+                unixHookFunction(mapAndMutexObject, pathStr);
             }
             else
             {
-                windowsHookFunction(m, pathStr, mutexForMap);
+                windowsHookFunction(mapAndMutexObject, pathStr);
             }
 
-            printMap(m);
+            printMap(mapAndMutexObject.fileMap);
             pathStr.clear();
         }
         else
@@ -162,15 +176,15 @@ void testFunctions(myMapType& m, FileHelper& fh, std::mutex& mutexForMap, bool t
 
     if (testUnix)
     {
-        unixHookFunction(m, pathStr, mutexForMap);
+        unixHookFunction(mapAndMutexObject, pathStr);
     }
     else
     {
-        windowsHookFunction(m, pathStr, mutexForMap);
+        windowsHookFunction(mapAndMutexObject, pathStr);
     }
 }
 
-void testInputs(myMapType& m, std::mutex& mutexForMap)
+void testInputs(MapAndMutex& mapAndMutexObject)
 {
     FileHelper fh;
     fh.tryToOpenFile("test_input.txt");
@@ -179,58 +193,57 @@ void testInputs(myMapType& m, std::mutex& mutexForMap)
 
     if (!fh.getCharacter(byteOrderMark))
     {
-        printf(
+        stdcout(
             "test_input.txt byte order mark is missing\n\
             save test_input.txt as UTF-16 LE\n\n"
         );
 
         return;
     }
-    else if (byteOrderMark != 0xFEFF) // not 0xFFFE because of how wchar_t is read
+    else if (byteOrderMark != 0xFEFF) // not 0xFFFE due to how wchar_t is read
     {
-        printf(
+        stdcout(
             "test_input.txt byte order mark isn't marked as UTF-16 LE\n\
             make sure files_and_delays.txt is saved as UTF-16 LE\n\n"
         );
     }
 #endif
-    printf("\ntesting UNIX\n\n - - - - - - - - - -\n\n");
-    printMap(m);
-    testFunctions(m, fh, mutexForMap, true);
-    printMap(m);
+    stdcout("\ntesting UNIX\n\n - - - - - - - - - -\n\n");
+    printMap(mapAndMutexObject.fileMap);
+    testFunctions(mapAndMutexObject, fh, true);
+    printMap(mapAndMutexObject.fileMap);
     fullResetCount = 0;
     fh.resetFile();
 #ifdef _WIN32
     fh.getCharacter(byteOrderMark);
 #endif
 
-    for (auto& it : m)
+    for (auto& it : mapAndMutexObject.fileMap)
     {
         it.second.position = 0;
         it.second.fullResetCheckNumber = 0;
     }
 
-    printf("\n\ntesting Windows\n\n - - - - - - - - - -\n\n");
-    printMap(m);
-    testFunctions(m, fh, mutexForMap, false);
-    printMap(m);
+    stdcout("\n\ntesting Windows\n\n - - - - - - - - - -\n\n");
+    printMap(mapAndMutexObject.fileMap);
+    testFunctions(mapAndMutexObject, fh, false);
+    printMap(mapAndMutexObject.fileMap);
 }
 
 int main()
 {
     try
     {
-        printf("\ntest start\n\n");
-        myMapType m;
-        std::mutex mutexForMap = setupMap(m);
-        testInputs(m, mutexForMap);
+        stdcout("\ntest start\n\n");
+        MapAndMutex mapAndMutexObject;
+        testInputs(mapAndMutexObject);
     }
     catch (char const* e)
     {
         printf("%s", e);
     }
 
-    printf("\ntest finished, press Enter to exit\n");
+    stdcout("\ntest finished, press Enter to exit\n");
     char ch = getchar();
 
     return 0;

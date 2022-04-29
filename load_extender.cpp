@@ -1,5 +1,11 @@
 
-#include <cstdio>
+// REMINDER:
+// std::format blows up exe size by over 150 KB,
+// so keep std::printf for formatting for now,
+// then replace it and std::cout with std::print once it's available
+
+#include <iostream>
+#include <filesystem>
 #include <climits>
 #include <mutex>
 #include <thread>
@@ -28,10 +34,9 @@ using svType = std::string_view;
 #endif
 
 // using multiple cpp files made exe bigger, so definitions are in this header
-#include "shared_stuff.h"
+#include "shared.h"
 
-static myMapType m;
-static std::mutex mutexForMap = setupMap(m);
+static MapAndMutex mapAndMutexObject;
 
 #ifdef _WIN32
 static NTSTATUS WINAPI NtCreateFileHook(
@@ -54,11 +59,14 @@ static NTSTATUS WINAPI NtCreateFileHook(
     for (; filenameIndex >= 0 && path[filenameIndex] != '\\'; filenameIndex--);
 
     filenameIndex++; // moving past '\\' character or to 0 if no '\\' was found
-    auto it = m.find(svType(path + filenameIndex, (size_t)pathEndIndex - filenameIndex));
+    auto it = mapAndMutexObject.fileMap.find(
+        svType(path + filenameIndex,
+        (size_t)pathEndIndex - filenameIndex)
+    );
 
-    if (it != m.end())
+    if (it != mapAndMutexObject.fileMap.end())
     {
-        delayFile(m, it->second, mutexForMap);
+        mapAndMutexObject.delayFile(it->second);
     }
 
     return NtCreateFile(
@@ -113,11 +121,14 @@ FILE* fopen(const char* path, const char* mode)
     }
     
     filenameIndex++; // moving past '/' character or to 0 if no '/' was found
-    auto it = m.find(svType(path + filenameIndex, (size_t)pathEndIndex - filenameIndex));
+    auto it = mapAndMutexObject.fileMap.find(
+        svType(path + filenameIndex,
+        (size_t)pathEndIndex - filenameIndex)
+    );
     
-    if (it != m.end())
+    if (it != mapAndMutexObject.fileMap.end())
     {
-        delayFile(m, it->second, mutexForMap);
+        delayFile(it->second);
     }
 
     return original_fopen(path, mode);

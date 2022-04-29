@@ -1,16 +1,25 @@
 
+// REMINDER:
+// std::format blows up exe size by over 150 KB,
+// so keep std::printf for formatting for now,
+// then replace it and std::cout with std::print once it's available
+
 #include <tchar.h>
-#include <cstdio>
+#include <iostream>
+#include <format>
+#include <climits>
 // easyhook.h installed with NuGet
 // https://easyhook.github.io/documentation.html
 #include <easyhook.h>
 #include <Windows.h>
 
-void getExitInput(char ch)
+void getExitInput()
 {
+	int ch = 0;
+
 	for (; ch != '\n'; ch = std::getchar());
 
-	printf("Press Enter to exit\n");
+	std::cout << "Press Enter to exit\n";
 	ch = std::getchar();
 }
 
@@ -18,16 +27,17 @@ int _tmain(int argc, _TCHAR* argv[])
 {
 	WCHAR* dllToInject32 = nullptr;
 	WCHAR* dllToInject64 = nullptr;
-	_TCHAR* lpApplicationName = argv[0];
-	DWORD lpBinaryType = 0;
+	_TCHAR* applicationName = argv[0];
+	DWORD binaryType = 0;
+	BOOL getBinaryTypeResult = GetBinaryType(applicationName, &binaryType);
 
-	if (GetBinaryType(lpApplicationName, &lpBinaryType) == 0 || (lpBinaryType != 0 && lpBinaryType != 6))
+	if (getBinaryTypeResult == 0 || (binaryType != 0 && binaryType != 6))
 	{
-		std::printf("ERROR: This exe wasn't identified as 32-bit or as 64-bit\n");
-		getExitInput('\n');
+		std::cout << "ERROR: This exe wasn't identified as 32-bit or as 64-bit\n";
+		getExitInput();
 		return 0;
 	}
-	else if (lpBinaryType == 0)
+	else if (binaryType == 0)
 	{
 		dllToInject32 = (WCHAR*)L"load_extender_32.dll";
 	}
@@ -36,29 +46,12 @@ int _tmain(int argc, _TCHAR* argv[])
 		dllToInject64 = (WCHAR*)L"load_extender_64.dll";
 	}
 
-	std::printf("Enter the process Id: ");
-	long long int PIDLongLong = 0;
-	char ch = std::getchar();
-
-	for (; ch != '\n'; ch = std::getchar())
-	{
-		if (ch >= '0' && ch <= '9')
-		{
-			ch = ch - '0'; // this prevents a warning message
-			PIDLongLong *= 10;
-			PIDLongLong += ch;
-		}
-
-		if (PIDLongLong > 4294967295)
-		{
-			std::printf("PID too large\n");
-			getExitInput(ch);
-			return 0;
-		}
-	}
+	std::cout << "Enter the process Id: ";
+	DWORD pid = 0;
+	std::cin >> pid;
 
 	NTSTATUS nt = RhInjectLibrary(
-		(DWORD)PIDLongLong,      // The process to inject into
+		pid,                     // The process to inject into
 		0,                       // ThreadId to wake up upon injection
 		EASYHOOK_INJECT_DEFAULT,
 		dllToInject32,           // 32-bit
@@ -72,11 +65,11 @@ int _tmain(int argc, _TCHAR* argv[])
 		std::printf("RhInjectLibrary failed with error code = %d\n", nt);
 		PWCHAR err = RtlGetLastErrorString();
 		std::printf("%ls\n", err);
-		getExitInput(ch);
+		getExitInput();
 		return 0;
 	}
 
-	std::printf("Library injected successfully.\n");
-	getExitInput(ch);
+	std::cout << "Library injected successfully.\n";
+	getExitInput();
 	return 0;
 }
