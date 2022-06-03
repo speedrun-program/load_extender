@@ -2,9 +2,11 @@
 #include <climits>
 #include <mutex>
 #include <thread>
-#include <chrono>
 #include <vector>
-#include <string>
+#include <memory>
+#include <cstring>
+#include <charconv>
+#include <exception>
 #include <string_view>
 #include <unordered_map>
 
@@ -14,17 +16,20 @@
 #include <easyhook.h>
 #include <Windows.h>
 using wcharOrChar = wchar_t; // file paths are UTF-16LE on Windows
-using strType = std::wstring;
 using svType = std::wstring_view;
+#define cmpFunction std::wcscmp
 #else
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
 #include <dlfcn.h>
 using wcharOrChar = char;
-using strType = std::string;
 using svType = std::string_view;
+#define cmpFunction std::strcmp
 #endif
+
+using uPtrType = std::unique_ptr<wcharOrChar[]>;
+using vectorType = std::vector<wcharOrChar>;
 
 // using multiple cpp files made exe bigger, so definitions are in this header
 #include "shared.h"
@@ -61,7 +66,7 @@ static NTSTATUS WINAPI NtCreateFileHook(
     {
         mapAndMutexObject.delayFile(it->second);
     }
-
+    
     return NtCreateFile(
         FileHandle,
         DesiredAccess,

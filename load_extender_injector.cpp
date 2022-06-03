@@ -30,7 +30,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	{
 		std::printf("ERROR: This exe wasn't identified as 32-bit or as 64-bit\n");
 		getExitInput();
-		return 0;
+		return EXIT_FAILURE;
 	}
 	else if (binaryType == 0)
 	{
@@ -61,10 +61,10 @@ int _tmain(int argc, _TCHAR* argv[])
 		PWCHAR errorMessage = RtlGetLastErrorString();
 		std::printf("%ls\n", errorMessage);
 		getExitInput();
-		return 0;
+		return EXIT_FAILURE;
 	}
 
 	std::printf("Library injected successfully.\n");
 	getExitInput();
-	return 0;
+	return EXIT_SUCCESS;
 }
