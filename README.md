@@ -39,6 +39,8 @@ load_extender_32.exe for 32 bit processes and load_extender_64.exe for 64 bit pr
 ON LINUX AND MAC: copy files_and_delays.txt to whatever directory you're in when you
 use LD_PRELOAD or DYLD_INSERT_LIBRARIES. You can copy it to your home directory for convenience.
 
+**REMEMBER** that you should run the 64 bit version of amnesia to get random dialogue skips.
+
 On linux, start the program along with one of the .so files using LD_PRELOAD. Use load_extender_32.so for 32 bit
 processes and load_extender_64.so for 64 bit processes. Enter the command shown below, with the .so file path and
 program file path in place of '.so file path' and 'program file path'.
