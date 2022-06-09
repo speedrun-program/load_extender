@@ -1,4 +1,5 @@
 
+#include <cstdio>
 #include <climits>
 #include <mutex>
 #include <vector>
@@ -36,19 +37,18 @@ void windowsHookFunction(MapAndMutex& mapAndMutexObject, vectorType& path)
         path.pop_back();
     }
 
-    path.push_back('\0');
-    const wcharOrChar* pathPtr = path.data();
-
     // in the actual program, pathEndIndex will always be less than INT_MAX
     int pathEndIndex = path.size() < INT_MAX ? (int)path.size() : INT_MAX;
-    int filenameIndex = pathEndIndex;
+    int filenameIndex = pathEndIndex - 1;
+    path.push_back('\0');
+    const wcharOrChar* pathPtr = path.data();
 
     for (; filenameIndex >= 0 && pathPtr[filenameIndex] != '\\'; filenameIndex--);
 
     filenameIndex++; // moving past '\\' character or to 0 if no '\\' was found
     auto it = mapAndMutexObject.fileMap.find(
         svType(pathPtr + filenameIndex,
-        (size_t)pathEndIndex - filenameIndex)
+            (size_t)pathEndIndex - filenameIndex)
     );
 
     if (it != mapAndMutexObject.fileMap.end())
@@ -56,7 +56,7 @@ void windowsHookFunction(MapAndMutex& mapAndMutexObject, vectorType& path)
 #ifdef _WIN32
         std::printf("\n%ls found in map\n", path.data());
 #else
-        std::printf("\n%s found in map\n", path.c_str());
+        std::printf("\n%s found in map\n", path.data());
 #endif
         mapAndMutexObject.delayFile(it->second);
     }
@@ -65,7 +65,7 @@ void windowsHookFunction(MapAndMutex& mapAndMutexObject, vectorType& path)
 #ifdef _WIN32
         std::printf("\n%ls not found in map\n", path.data());
 #else
-        std::printf("\n%s not found in map\n", path.c_str());
+        std::printf("\n%s not found in map\n", path.data());
 #endif
     }
 }
@@ -84,7 +84,7 @@ void unixHookFunction(MapAndMutex& mapAndMutexObject, vectorType& path)
     int pathEndIndex = 0;
 
     // in the actual program, pathEndIndex will always be less than INT_MAX
-    for (; pathPtr[pathEndIndex] != '\0' && pathEndIndex < INT_MAX; pathEndIndex++)
+    for (; pathEndIndex < INT_MAX && pathPtr[pathEndIndex] != '\0'; pathEndIndex++)
     {
         if (pathPtr[pathEndIndex] == '/')
         {
@@ -95,7 +95,7 @@ void unixHookFunction(MapAndMutex& mapAndMutexObject, vectorType& path)
     filenameIndex++; // moving past '/' character or to 0 if no '/' was found
     auto it = mapAndMutexObject.fileMap.find(
         svType(pathPtr + filenameIndex,
-        (size_t)pathEndIndex - filenameIndex)
+            (size_t)pathEndIndex - filenameIndex)
     );
 
     if (it != mapAndMutexObject.fileMap.end())
@@ -188,15 +188,15 @@ void testFunctions(MapAndMutex& mapAndMutexObject, FileHelper& fhelper, bool tes
 void testInputs(MapAndMutex& mapAndMutexObject)
 {
     FileHelper fhelper("test_input.txt");
-    wcharOrChar byteOrderMark = '\0';
 #ifdef _WIN32
+    wcharOrChar byteOrderMark = '\0';
 
     if (!fhelper.getCharacter(byteOrderMark))
     {
         std::printf(
             "test_input.txt byte order mark is missing\n\
 save test_input.txt as UTF-16 LE\n\n"
-        );
+);
 
         return;
     }
@@ -205,9 +205,10 @@ save test_input.txt as UTF-16 LE\n\n"
         std::printf(
             "test_input.txt byte order mark isn't marked as UTF-16 LE\n\
 make sure files_and_delays.txt is saved as UTF-16 LE\n\n"
-        );
+);
     }
 #endif
+
     std::printf("\ntesting UNIX\n\n - - - - - - - - - -\n\n");
     printMap(mapAndMutexObject.fileMap);
     testFunctions(mapAndMutexObject, fhelper, true);

@@ -6,6 +6,7 @@
 bool checkIfFileExists(const char* filename)
 {
     FILE* fcheck = nullptr;
+
     try
     {
         bool exists = false;
@@ -71,12 +72,12 @@ public:
     FileHelper(FileHelper&&) = delete;
     FileHelper& operator=(FileHelper&&) = delete;
 
-    FileHelper(const char* filename)
+    explicit FileHelper(const char* filename)
     {
 #ifdef _WIN32
         if (fopen_s(&_f, filename, "rb") != 0 || !_f)
 #else
-        if (!(_f = std::fopen(filePath, "rb")))
+        if (!(_f = std::fopen(filename, "rb")))
 #endif
         {
             stdprintf("ERROR: %s\n", filename);
@@ -138,9 +139,8 @@ struct MapValue
     size_t position = 0;
     size_t fullResetCheckNumber = 0;
 
-    MapValue(std::vector<int>& delaysVector)
+    explicit MapValue(std::vector<int>& delaysVector) : delays(std::make_unique_for_overwrite<int[]>(delaysVector.size()))
     {
-        delays = std::make_unique_for_overwrite<int[]>(delaysVector.size());
         std::memcpy(delays.get(), delaysVector.data(), delaysVector.size() * sizeof(int));
     }
 };
@@ -245,7 +245,7 @@ make sure files_and_delays.txt is saved as UTF-16 LE\n"
         }
     }
 
-    bool addMapPair(myMapType& fileMap, vectorType& keyVector, std::vector<int>& delaysVector, FileHelper& fhelper, std::vector<char> intAsChars)
+    bool addMapPair(myMapType& fileMap, vectorType& keyVector, std::vector<int>& delaysVector, FileHelper& fhelper, std::vector<char>& intAsChars)
     {
         keyVector.clear();
         delaysVector.clear();
@@ -278,9 +278,9 @@ make sure files_and_delays.txt is saved as UTF-16 LE\n"
         {
             while (!keyVector.empty())
             {
-                wcharOrChar ch = keyVector.back();
+                wcharOrChar endChar = keyVector.back();
 
-                if (ch == ' ' || ch == '\f' || ch == '\r' || ch == '\t' || ch == '\v')
+                if (endChar == ' ' || endChar == '\f' || endChar == '\r' || endChar == '\t' || endChar == '\v')
                 {
                     keyVector.pop_back();
                 }
@@ -313,7 +313,7 @@ make sure files_and_delays.txt is saved as UTF-16 LE\n"
     }
 
     // the -2 at the end is added in addMapPair when there isn't already a -1
-    void fillDelaysVector(bool& textRemaining, std::vector<int>& delaysVector, FileHelper& fhelper, std::vector<char> intAsChars)
+    void fillDelaysVector(bool& textRemaining, std::vector<int>& delaysVector, FileHelper& fhelper, std::vector<char>& intAsChars)
     {
         wcharOrChar ch = '\0';
         int delay = 0;
@@ -339,7 +339,7 @@ make sure files_and_delays.txt is saved as UTF-16 LE\n"
 
                 if (ec == std::errc::result_out_of_range)
                 {
-                    throw std::runtime_error("delays can't be larger than INT_MAX");
+                    throw std::runtime_error("delays can't be larger than INT_MAX1");
                 }
 
                 delaysVector.push_back(delay);
@@ -356,12 +356,15 @@ make sure files_and_delays.txt is saved as UTF-16 LE\n"
 
                 if (ec == std::errc::result_out_of_range)
                 {
-                    throw std::runtime_error("delays can't be larger than INT_MAX");
+                    throw std::runtime_error("delays can't be larger than INT_MAX2");
                 }
 
                 delaysVector.push_back(delay);
             }
         }
+
+        intAsChars.clear();
+        intAsChars.push_back('0');
 
         // make sure to go to end of line
         for (; ch != '\n' && textRemaining; textRemaining = fhelper.getCharacter(ch));
@@ -369,10 +372,9 @@ make sure files_and_delays.txt is saved as UTF-16 LE\n"
 
     void delayFile(MapValue& fileMapValue)
     {
-#ifndef DEBUG // this needs to be reset in the test, so it's a global variable instead
-        size_t fullResetCount = 0;
+#ifndef DEBUG // this needs to be reset in the test, so it a global variable instead
+        static size_t fullResetCount = 0;
 #endif
-
         stdprintf("fullResetCount: %zu\n", fullResetCount);
         int delay = 0;
 
@@ -413,7 +415,7 @@ make sure files_and_delays.txt is saved as UTF-16 LE\n"
                 stdprintf("delay sequence already finished\n");
             }
 
-            if (fileMapValue.delays[fileMapValue.position] > 0)
+            if (fileMapValue.delays[fileMapValue.position] >= 0)
             {
                 delay = fileMapValue.delays[fileMapValue.position];
                 fileMapValue.position++;

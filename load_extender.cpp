@@ -1,4 +1,5 @@
 
+#include <cstdio>
 #include <climits>
 #include <mutex>
 #include <thread>
@@ -26,6 +27,10 @@ using svType = std::wstring_view;
 using wcharOrChar = char;
 using svType = std::string_view;
 #define cmpFunction std::strcmp
+static auto originalFopen = reinterpret_cast<FILE * (*)(const char* path, const char* mode)>(dlsym(RTLD_NEXT, "fopen"));
+static auto originalFreopen = reinterpret_cast<FILE * (*)(const char* path, const char* mode, FILE * stream)>(dlsym(RTLD_NEXT, "freopen"));
+static auto originalFopen64 = reinterpret_cast<FILE * (*)(const char* path, const char* mode)>(dlsym(RTLD_NEXT, "fopen64"));
+static auto originalFreopen64 = reinterpret_cast<FILE * (*)(const char* path, const char* mode, FILE * stream)>(dlsym(RTLD_NEXT, "freopen64"));
 #endif
 
 using uPtrType = std::unique_ptr<wcharOrChar[]>;
@@ -52,21 +57,21 @@ static NTSTATUS WINAPI NtCreateFileHook(
 {
     const wchar_t* path = (const wchar_t*)(ObjectAttributes->ObjectName->Buffer);
     int pathEndIndex = (ObjectAttributes->ObjectName->Length) / sizeof(wchar_t);
-    int filenameIndex = pathEndIndex;
+    int filenameIndex = pathEndIndex - 1;
 
     for (; filenameIndex >= 0 && path[filenameIndex] != '\\'; filenameIndex--);
 
     filenameIndex++; // moving past '\\' character or to 0 if no '\\' was found
     auto it = mapAndMutexObject.fileMap.find(
         svType(path + filenameIndex,
-        (size_t)pathEndIndex - filenameIndex)
+            (size_t)pathEndIndex - filenameIndex)
     );
 
     if (it != mapAndMutexObject.fileMap.end())
     {
         mapAndMutexObject.delayFile(it->second);
     }
-    
+
     return NtCreateFile(
         FileHandle,
         DesiredAccess,
@@ -103,9 +108,8 @@ void __stdcall NativeInjectionEntryPoint(REMOTE_ENTRY_INFO* inRemoteInfo)
     LhSetExclusiveACL(ACLEntries, 1, &hHook1);
 }
 #else
-static auto originalFopen = reinterpret_cast<FILE * (*)(const char* path, const char* mode)>(dlsym(RTLD_NEXT, "fopen"));
 
-FILE* fopen(const char* path, const char* mode)
+void sharedPathCheckingFunction(const char* path)
 {
     int filenameIndex = -1;
     int pathEndIndex = 0;
@@ -117,18 +121,45 @@ FILE* fopen(const char* path, const char* mode)
             filenameIndex = pathEndIndex;
         }
     }
-    
+
     filenameIndex++; // moving past '/' character or to 0 if no '/' was found
     auto it = mapAndMutexObject.fileMap.find(
         svType(path + filenameIndex,
-        (size_t)pathEndIndex - filenameIndex)
+            (size_t)pathEndIndex - filenameIndex)
     );
-    
+
     if (it != mapAndMutexObject.fileMap.end())
     {
-        delayFile(it->second);
+        mapAndMutexObject.delayFile(it->second);
     }
-
-    return original_fopen(path, mode);
 }
+
+FILE* fopen(const char* path, const char* mode)
+{
+    sharedPathCheckingFunction(path);
+
+    return originalFopen(path, mode);
+}
+
+FILE* freopen(const char* path, const char* mode, FILE* stream)
+{
+    sharedPathCheckingFunction(path);
+
+    return originalFreopen(path, mode, stream);
+}
+
+FILE* fopen64(const char* path, const char* mode)
+{
+    sharedPathCheckingFunction(path);
+
+    return originalFopen64(path, mode);
+}
+
+FILE* freopen64(const char* path, const char* mode, FILE* stream)
+{
+    sharedPathCheckingFunction(path);
+
+    return originalFreopen64(path, mode, stream);
+}
+
 #endif
