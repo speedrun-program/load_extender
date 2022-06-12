@@ -3,7 +3,7 @@
 #define stdprintf(...) (0)
 #endif
 
-bool checkIfFileExists(const char* filename)
+static bool checkIfFileExists(const char* filename)
 {
     FILE* fcheck = nullptr;
 
@@ -41,7 +41,7 @@ bool checkIfFileExists(const char* filename)
 // 10: number part
 // 4: ".txt"
 // 1: '\0'
-void findCorrectFileName(char* name)
+static void findCorrectFileName(char* name)
 {
     unsigned int fileNumber = 1;
 

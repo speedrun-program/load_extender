@@ -64,14 +64,14 @@ static NTSTATUS WINAPI NtCreateFileHook(
     filenameIndex++; // moving past '\\' character or to 0 if no '\\' was found
     auto it = mapAndMutexObject.fileMap.find(
         svType(path + filenameIndex,
-            (size_t)pathEndIndex - filenameIndex)
+        (size_t)pathEndIndex - filenameIndex)
     );
 
     if (it != mapAndMutexObject.fileMap.end())
     {
         mapAndMutexObject.delayFile(it->second);
     }
-
+    
     return NtCreateFile(
         FileHandle,
         DesiredAccess,
@@ -109,7 +109,7 @@ void __stdcall NativeInjectionEntryPoint(REMOTE_ENTRY_INFO* inRemoteInfo)
 }
 #else
 
-void sharedPathCheckingFunction(const char* path)
+static void sharedPathCheckingFunction(const char* path)
 {
     int filenameIndex = -1;
     int pathEndIndex = 0;
@@ -125,7 +125,7 @@ void sharedPathCheckingFunction(const char* path)
     filenameIndex++; // moving past '/' character or to 0 if no '/' was found
     auto it = mapAndMutexObject.fileMap.find(
         svType(path + filenameIndex,
-            (size_t)pathEndIndex - filenameIndex)
+        (size_t)pathEndIndex - filenameIndex)
     );
 
     if (it != mapAndMutexObject.fileMap.end())
@@ -161,5 +161,4 @@ FILE* freopen64(const char* path, const char* mode, FILE* stream)
 
     return originalFreopen64(path, mode, stream);
 }
-
 #endif
