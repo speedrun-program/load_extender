@@ -1,6 +1,4 @@
 
-// this is only used on Windows
-
 #include <tchar.h>
 #include <iostream>
 #include <format>
@@ -9,13 +7,52 @@
 // https://easyhook.github.io/documentation.html
 #include <easyhook.h>
 #include <Windows.h>
+#include <tlhelp32.h>
+
+#ifdef COMPILE_FOR_AMNESIA
+DWORD findAmnesiaPid()
+{
+	const wchar_t steamName[] = L"Amnesia.exe";
+	const wchar_t nosteamName[] = L"Amnesia_NoSteam.exe";
+
+	PROCESSENTRY32 processEntry{};
+	processEntry.dwSize = sizeof(PROCESSENTRY32);
+
+	HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+	if (snapshot == INVALID_HANDLE_VALUE)
+	{
+		printf("error when using CreateToolhelp32Snapshot: %d\n", GetLastError());
+		return (DWORD)-1;
+	}
+
+	if (!Process32First(snapshot, &processEntry))
+	{
+		printf("error when using Process32First: %d\n", GetLastError());
+		CloseHandle(snapshot);
+		return (DWORD)-1;
+	}
+
+	do
+	{
+		if (wcscmp(processEntry.szExeFile, steamName) == 0 || wcscmp(processEntry.szExeFile, nosteamName) == 0)
+		{
+			CloseHandle(snapshot);
+			return processEntry.th32ProcessID;
+		}
+	} while (Process32Next(snapshot, &processEntry));
+
+	CloseHandle(snapshot);
+	printf("couldn't find amnesia process\n");
+	return (DWORD)-1;
+}
+#endif
 
 void getExitInput()
 {
 	int ch = 0;
-
+#ifndef COMPILE_FOR_AMNESIA
 	for (; ch != '\n'; ch = std::getchar());
-
+#endif
 	std::printf("Press Enter to exit\n");
 	ch = std::getchar();
 }
@@ -42,10 +79,18 @@ int _tmain(int argc, _TCHAR* argv[])
 	{
 		dllToInject64 = (WCHAR*)L"load_extender_64.dll";
 	}
-
+#ifdef COMPILE_FOR_AMNESIA
+	DWORD pid = findAmnesiaPid();
+	if (pid == (DWORD)-1)
+	{
+		getExitInput();
+		return EXIT_FAILURE;
+	}
+#else
 	std::printf("Enter the process Id: ");
 	DWORD pid = 0;
 	std::cin >> pid;
+#endif
 
 	NTSTATUS errorCode = RhInjectLibrary(
 		pid,                     // The process to inject into
